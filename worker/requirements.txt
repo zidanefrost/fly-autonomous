@@ -1,0 +1,4 @@
+modal
+httpx
+supabase
+pytest
