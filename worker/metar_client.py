@@ -33,10 +33,14 @@ def fetch_metars(icao_codes: list[str], client: httpx.Client | None = None) -> d
             try:
                 resp = client.get(METAR_ENDPOINT, params={"ids": ",".join(batch), "format": "json"})
                 resp.raise_for_status()
-            except httpx.HTTPError:
+                # AWC returns 204 No Content (empty body) when none of the
+                # requested ids have data at all — not an HTTP error, but not
+                # JSON either.
+                entries = resp.json() if resp.content else []
+            except (httpx.HTTPError, ValueError):
                 logger.warning("METAR batch fetch failed for %s, skipping batch", batch, exc_info=True)
                 continue
-            for entry in resp.json():
+            for entry in entries:
                 icao = entry.get("icaoId")
                 if icao:
                     results[icao] = entry

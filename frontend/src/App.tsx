@@ -8,6 +8,7 @@ import { StatsBar } from "./components/StatsBar";
 import { Hero } from "./components/Hero";
 import { ProofStats } from "./components/ProofStats";
 import { HowItWorks } from "./components/HowItWorks";
+import { FlightForecast } from "./components/FlightForecast";
 import { CostImpact } from "./components/CostImpact";
 import { Features } from "./components/Features";
 import { UsageGuide } from "./components/UsageGuide";
@@ -47,6 +48,7 @@ function App() {
       <Hero airports={airports} />
       <ProofStats airports={airports} />
       <HowItWorks />
+      <FlightForecast />
       <CostImpact airports={airports} />
       <Features />
       <UsageGuide />

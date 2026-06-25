@@ -117,7 +117,9 @@ def _score_to_level(score: int) -> str:
 
 
 def score_metar(metar: dict) -> RiskResult:
-    """metar: one parsed object as returned by aviationweather.gov's METAR JSON API."""
+    """metar: any dict with fltCat/wspd/wgst/wxString — works for a parsed METAR
+    object from aviationweather.gov's API, or a synthesized worst-case TAF period
+    (see forecast_risk below)."""
     factors: list[str] = []
 
     flt_cat = metar.get("fltCat") or "MVFR"  # unknown/missing -> assume reduced, not best-case
@@ -139,3 +141,94 @@ def score_metar(metar: dict) -> RiskResult:
         factors.append("Clear conditions, no significant weather reported")
 
     return RiskResult(score=score, level=_score_to_level(score), factors=factors)
+
+
+def _ceiling_ft(clouds: list[dict] | None) -> float:
+    """Lowest BKN/OVC cloud base in feet, or +inf if there's no ceiling layer."""
+    if not clouds:
+        return float("inf")
+    bases = [
+        c["base"]
+        for c in clouds
+        if c.get("cover") in ("BKN", "OVC") and isinstance(c.get("base"), (int, float))
+    ]
+    return min(bases) if bases else float("inf")
+
+
+def compute_flight_category(visib, clouds: list[dict] | None) -> str:
+    """FAA flight-category thresholds. TAF forecast periods don't come with a
+    pre-computed category the way AWC's METAR API does, so this derives one
+    the same way the agency does for METARs: VFR ceiling>3000ft & vis>5sm;
+    MVFR ceiling 1000-3000ft or vis 3-5sm; IFR ceiling 500-1000ft or vis 1-3sm;
+    LIFR ceiling<500ft or vis<1sm.
+    """
+    vis = _parse_visibility_sm(visib)
+    vis = 10.0 if vis is None else vis  # missing -> assume good, not the worst case
+    ceiling = _ceiling_ft(clouds)
+
+    if ceiling < 500 or vis < 1:
+        return "LIFR"
+    if ceiling < 1000 or vis < 3:
+        return "IFR"
+    if ceiling <= 3000 or vis <= 5:
+        return "MVFR"
+    return "VFR"
+
+
+def select_forecast_periods(taf: dict, target_epoch: int) -> list[dict] | None:
+    """Forecast periods (prevailing + any overlapping BECMG/TEMPO/PROB groups)
+    that cover `target_epoch`. Returns None if `target_epoch` is outside the
+    TAF's valid window entirely (TAFs only cover roughly 24-30 hours ahead) —
+    callers must treat that as "no forecast available", not silently fall back
+    to current conditions for a future time.
+    """
+    valid_from, valid_to = taf.get("validTimeFrom"), taf.get("validTimeTo")
+    if valid_from is None or valid_to is None or not (valid_from <= target_epoch <= valid_to):
+        return None
+
+    periods = [
+        p
+        for p in taf.get("fcsts", [])
+        if p.get("timeFrom") is not None
+        and p.get("timeTo") is not None
+        and p["timeFrom"] <= target_epoch <= p["timeTo"]
+    ]
+    return periods or None
+
+
+def _worst_case_period(periods: list[dict]) -> tuple[dict, bool]:
+    """Merges overlapping forecast periods into one worst-case weather dict.
+    TEMPO/PROB groups describe conditions that may occur *in addition to* the
+    prevailing forecast, not instead of it, so we take the worst of all of them
+    rather than picking just one period.
+    """
+    visibs = [v for p in periods if (v := _parse_visibility_sm(p.get("visib"))) is not None]
+    all_clouds = [c for p in periods for c in (p.get("clouds") or [])]
+    wspds = [p["wspd"] for p in periods if isinstance(p.get("wspd"), (int, float))]
+    wgsts = [p["wgst"] for p in periods if isinstance(p.get("wgst"), (int, float))]
+    wx_strings = [p["wxString"] for p in periods if p.get("wxString")]
+    is_probable = any(p.get("fcstChange") == "TEMPO" or p.get("probability") for p in periods)
+
+    merged = {
+        "fltCat": compute_flight_category(min(visibs) if visibs else None, all_clouds),
+        "wspd": max(wspds) if wspds else None,
+        "wgst": max(wgsts) if wgsts else None,
+        "wxString": " ".join(wx_strings) if wx_strings else None,
+    }
+    return merged, is_probable
+
+
+def forecast_risk(taf: dict, target_epoch: int) -> RiskResult | None:
+    """Worst-case explainable risk forecast for `target_epoch`, or None if
+    that time falls outside the TAF's valid window.
+    """
+    periods = select_forecast_periods(taf, target_epoch)
+    if periods is None:
+        return None
+    merged, is_probable = _worst_case_period(periods)
+    result = score_metar(merged)
+    if is_probable:
+        result.factors.append(
+            "Includes a temporary/probable forecast window (TEMPO/PROB) — treated as worst-case"
+        )
+    return result

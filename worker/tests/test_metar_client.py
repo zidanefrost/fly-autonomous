@@ -30,3 +30,16 @@ def test_one_failing_batch_does_not_lose_other_batches():
 
     assert all(icao not in results for icao in codes[:BATCH_SIZE])
     assert all(icao in results for icao in codes[BATCH_SIZE:])
+
+
+def test_204_empty_response_does_not_crash():
+    """Regression test: aviationweather.gov returns HTTP 204 with an empty
+    body (not "[]") when none of the requested ids have any data — this isn't
+    an HTTP error, but resp.json() on an empty body raises, which crashed a
+    single-airport lookup with an unknown/invalid code (production bug)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(204, content=b"")
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    assert fetch_metars(["ZZZZ"], client=client) == {}
