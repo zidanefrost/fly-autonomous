@@ -79,18 +79,29 @@ def get_task_messages(task_id: str, client: httpx.Client | None = None) -> list[
             client.close()
 
 
-def build_briefing_prompt(top_risk_airports: list[dict]) -> str:
-    """top_risk_airports: list of {icao, name, city, country, level, score, factors}."""
+def build_briefing_prompt(airports: list[dict], question: str | None = None) -> str:
+    """airports: list of {icao, name, city, country, level, score, factors}.
+
+    If `question` is given, answers that specific free-text question using only
+    the supplied data (the single-prompt box on the landing page). Otherwise
+    defaults to a general top-risk operational briefing.
+    """
+    instruction = (
+        f'Answer this specific question using only the data below: "{question}"'
+        if question
+        else "Write a concise (4-6 sentence) operational briefing for a duty manager, "
+        "summarizing the highest weather-driven delay-risk airports right now."
+    )
     lines = [
-        "You are an airline network operations briefing assistant. "
-        "Write a concise (4-6 sentence) operational briefing for a duty manager, "
-        "summarizing the highest weather-driven delay-risk airports right now. "
+        f"You are an airline network operations briefing assistant. {instruction} "
         "Be specific about which airports and why, and end with one practical "
-        "recommendation. Do not invent data beyond what's given.",
+        "recommendation. Do not invent data beyond what's given — if the data doesn't "
+        "answer the question, say so plainly. Reply in plain prose only — no markdown "
+        "formatting (no #, *, **, or bullet/numbered lists).",
         "",
-        "Current highest-risk airports:",
+        "Current airport weather/delay-risk data:",
     ]
-    for a in top_risk_airports:
+    for a in airports:
         factors = "; ".join(a.get("factors", []))
         lines.append(
             f"- {a['icao']} ({a.get('name', '')}, {a.get('city', '')}, {a.get('country', '')}): "

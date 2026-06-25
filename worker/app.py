@@ -76,10 +76,10 @@ def trigger_refresh():
 @app.function(image=image, secrets=[modal.Secret.from_name("manus-creds")], timeout=60)
 @modal.fastapi_endpoint(method="POST")
 def ai_briefing(payload: dict):
-    """payload: {"top_risk_airports": [{icao, name, city, country, level, score, factors}]}."""
+    """payload: {"airports": [{icao, name, city, country, level, score, factors}], "question": str | None}."""
     if not manus_client.is_configured():
         return {"error": "Manus not configured (set MANUS_API_KEY)"}
-    prompt = manus_client.build_briefing_prompt(payload.get("top_risk_airports", []))
+    prompt = manus_client.build_briefing_prompt(payload.get("airports", []), payload.get("question"))
     task_id = manus_client.create_briefing_task(prompt)
     return {"task_id": task_id}
 
