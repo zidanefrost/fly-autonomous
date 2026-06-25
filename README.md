@@ -1,4 +1,4 @@
-# OTP Sentinel — Weather & Delay-Risk Monitoring
+# Fly Autonomous — Weather & Delay-Risk Monitoring
 
 Built for the **Cursor Hands Off London Hackathon**. This is a scoped-down slice of the
 full "AI OTP Optimisation Company" concept in [`docs/cursoridea.txt`](docs/cursoridea.txt):
