@@ -13,3 +13,4 @@ export const TRIGGER_REFRESH_URL = BASE ? `${BASE}-trigger-refresh.modal.run` : 
 export const AI_BRIEFING_URL = BASE ? `${BASE}-ai-briefing.modal.run` : undefined;
 export const AI_BRIEFING_STATUS_URL = BASE ? `${BASE}-ai-briefing-status.modal.run` : undefined;
 export const FLIGHT_FORECAST_URL = BASE ? `${BASE}-flight-forecast.modal.run` : undefined;
+export const SUBSCRIBE_FLIGHT_WATCH_URL = BASE ? `${BASE}-subscribe-flight-watch.modal.run` : undefined;
