@@ -5,7 +5,6 @@ import { AIRPORTS } from "../lib/airports";
 import { RISK_COLORS } from "../lib/types";
 import { useFlightForecast } from "../hooks/useFlightForecast";
 import type { ForecastLeg } from "../hooks/useFlightForecast";
-import { useFlightWatch } from "../hooks/useFlightWatch";
 import { Reveal } from "./Reveal";
 
 const SORTED_AIRPORTS = [...AIRPORTS].sort((a, b) => a.name.localeCompare(b.name));
@@ -173,77 +172,10 @@ export function FlightForecast() {
                 <p className="mt-1 text-sm text-slate-200">{result.checkin_advice.message}</p>
               </div>
             )}
-
-            <WhatsAppOptIn
-              departureIcao={departure}
-              arrivalIcao={arrival || null}
-              departureTimeIso={new Date(when).toISOString()}
-            />
           </motion.div>
         )}
       </div>
     </section>
-  );
-}
-
-function WhatsAppOptIn({
-  departureIcao,
-  arrivalIcao,
-  departureTimeIso,
-}: {
-  departureIcao: string;
-  arrivalIcao: string | null;
-  departureTimeIso: string;
-}) {
-  const [phone, setPhone] = useState("");
-  const { loading, result, subscribe } = useFlightWatch();
-
-  function handleSubscribe(e: FormEvent) {
-    e.preventDefault();
-    if (!phone.trim()) return;
-    subscribe(phone.trim(), departureIcao, arrivalIcao, departureTimeIso);
-  }
-
-  if (result?.ok) {
-    return (
-      <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
-        {result.notified
-          ? "You're set — a WhatsApp message is on its way, and we'll text you again if conditions change."
-          : result.reason}
-      </div>
-    );
-  }
-
-  return (
-    <form
-      onSubmit={handleSubscribe}
-      className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4"
-    >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <label className="flex-1 text-left">
-          <span className="text-xs uppercase tracking-wide text-slate-500">
-            Get a WhatsApp update if this changes
-          </span>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+44 7xxx xxxxxx"
-            className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-400/50 focus:outline-none"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={loading || !phone.trim()}
-          className="rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:scale-105 hover:bg-white/20 disabled:opacity-50"
-        >
-          {loading ? "…" : "Notify me"}
-        </button>
-      </div>
-      {result && !result.ok && (
-        <div className="mt-2 text-xs text-red-300">{result.reason}</div>
-      )}
-    </form>
   );
 }
 

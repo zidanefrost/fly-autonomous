@@ -48,23 +48,6 @@ create policy "public read risk" on delay_risk for select using (true);
 alter publication supabase_realtime add table weather_observations;
 alter publication supabase_realtime add table delay_risk;
 
-create table if not exists flight_watches (
-  id uuid primary key default gen_random_uuid(),
-  phone text not null,
-  departure_icao text not null references airports(icao),
-  arrival_icao text references airports(icao),
-  departure_time timestamptz not null,
-  wassist_conversation_id text,
-  last_notified_level text,
-  active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
--- No RLS policies on purpose: holds phone numbers (PII). Zero policies +
--- RLS enabled means no anon/authenticated access at all; only the worker
--- (service-role key, bypasses RLS) reads or writes it.
-alter table flight_watches enable row level security;
-
 -- Seed data: ~100 popular airports worldwide, excluding the USA and Russia.
 -- Mirrors worker/airports_seed.py — keep both in sync if the list changes.
 insert into airports (icao, iata, name, city, country, lat, lon) values
